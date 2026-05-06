@@ -1,0 +1,96 @@
+# experiments/sutrack/sutrack_b224_antiuav_standard_v2.yaml
+# Standard Attention v2 — 抗过拟合增强版
+#
+# 针对 Standard v1 的问题:
+#   - Epoch 90 后 IoU 停滞在 0.852
+#   - 训练 IoU 0.852 → 测试 SA 59.74%（泛化鸿沟 ~25点）
+#   - 根因: causal 采样 + MAX_SAMPLE_INTERVAL=200 太容易，
+#           模型学了"目标几乎不动"的捷径
+#
+# 改进措施:
+#   1. MAX_SAMPLE_INTERVAL: 200→800  加大时序间隔，逼模型学真实运动
+#   2. SEARCH.CENTER_JITTER: 3.5→5.0  搜索区增强，模拟跟踪漂移
+#   3. SEARCH.SCALE_JITTER: 0.5→0.7   更激进的尺度变化
+#   4. TEMPLATE.CENTER_JITTER: 0→1.0  模板勿固化，防过拟合
+#   5. DROP_PATH: 0.1→0.2   更强正则化
+#   6. GRAD_CLIP_NORM: 0→1.0    困难样本梯度稳定
+
+DATA:
+  MAX_SAMPLE_INTERVAL: 500
+  MULTI_MODAL_LANGUAGE: False
+  MULTI_MODAL_VISION: True
+  MEAN:
+  - 0.485
+  - 0.456
+  - 0.406
+  STD:
+  - 0.229
+  - 0.224
+  - 0.225
+  SEARCH:
+    CENTER_JITTER: 5.0
+    FACTOR: 4.0
+    SCALE_JITTER: 0.7
+    SIZE: 224
+    NUMBER: 1
+  TEMPLATE:
+    CENTER_JITTER: 1.0
+    FACTOR: 2.0
+    SCALE_JITTER: 0.1
+    SIZE: 112
+    NUMBER: 2
+  TRAIN:
+    DATASETS_NAME:
+    - ANTIUAV
+    DATASETS_RATIO:
+    - 1
+    SAMPLE_PER_EPOCH: 10000
+
+MODEL:
+  ENCODER:
+    TYPE: fastitpnb
+    IN_CHANS: 6
+    STRIDE: 16
+    PRETRAIN_TYPE: 'pretrained/itpn/fast_itpn_base_clipl_e1600.pt'
+    PATCHEMBED_INIT: halfcopy
+    DROP_PATH: 0.2
+    TOKEN_TYPE_INDICATE: True
+    USE_LINEAR_ATTN: False
+  TASK_INDEX:
+    ANTIUAV: 0
+  DECODER:
+    TYPE: CENTER
+    NUM_CHANNELS: 256
+    CONV_TYPE: normal
+    XAVIER_INIT: True
+  TASK_DECODER:
+    NUM_CHANNELS: 256
+    FEATURE_TYPE: average
+  TASK_NUM: 1
+
+TRAIN:
+  TYPE: normal
+  ENCODER_MULTIPLIER: 0.1
+  BATCH_SIZE: 40
+  EPOCH: 90
+  GRAD_CLIP_NORM: 1.0
+  LR: 0.0001
+  LR_DROP_EPOCH: 50
+  NUM_WORKER: 20
+  OPTIMIZER: ADAMW
+  PRINT_INTERVAL: 10
+  SCHEDULER:
+    TYPE: step
+    DECAY_RATE: 0.1
+  WEIGHT_DECAY: 0.0001
+  FREEZE_ENCODER: False
+  AMP: True
+
+TEST:
+  EPOCH: 90
+  SEARCH_FACTOR: 4.0
+  SEARCH_SIZE: 224
+  TEMPLATE_FACTOR: 2.0
+  TEMPLATE_SIZE: 112
+  WINDOW: True
+  NUM_TEMPLATES: 2

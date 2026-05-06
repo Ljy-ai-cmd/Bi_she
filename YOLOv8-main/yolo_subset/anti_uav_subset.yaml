@@ -1,0 +1,9 @@
+# Anti-UAV 红外无人机检测数据集 - 子集 (1000/200/200)
+path: E:\biyesheji\SUTrack-main11\YOLOv8-main\yolo_subset  # 数据集根目录
+train: images/train  # 训练集图像路径
+val: images/val  # 验证集图像路径
+test: images/test  # 测试集图像路径
+
+# 类别信息
+names:
+  0: UAV  # 无人机

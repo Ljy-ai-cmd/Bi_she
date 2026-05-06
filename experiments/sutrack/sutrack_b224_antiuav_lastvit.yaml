@@ -1,0 +1,100 @@
+# experiments/sutrack/sutrack_b224_antiuav_lastvit.yaml
+# LAST-ViT Frequency Domain Selection Configuration
+# LAST-ViT 频域选择配置 - 融合频域分析的目标跟踪
+# 最终版训练方案
+
+DATA:
+  MAX_SAMPLE_INTERVAL: 200
+  MULTI_MODAL_LANGUAGE: False
+  MULTI_MODAL_VISION: True
+  MEAN:
+  - 0.485
+  - 0.456
+  - 0.406
+  STD:
+  - 0.229
+  - 0.224
+  - 0.225
+  SEARCH:
+    CENTER_JITTER: 3.5
+    FACTOR: 4.0
+    SCALE_JITTER: 0.5
+    SIZE: 224
+    NUMBER: 1
+  TEMPLATE:
+    CENTER_JITTER: 0
+    FACTOR: 2.0
+    SCALE_JITTER: 0
+    SIZE: 112
+    NUMBER: 2
+  TRAIN:
+    DATASETS_NAME:
+    - ANTIUAV
+    DATASETS_RATIO:
+    - 1
+    SAMPLE_PER_EPOCH: 10000  # 完整训练样本数
+
+MODEL:
+  ENCODER:
+    TYPE: fastitpnb_lastvit  # LAST-ViT Base版本 (embed_dim=512)
+    IN_CHANS: 6
+    STRIDE: 16
+    PRETRAIN_TYPE: 'pretrained/itpn/fast_itpn_base_clipl_e1600.pt'  # 预训练权重
+    PATCHEMBED_INIT: halfcopy
+    DROP_PATH: 0.1
+    TOKEN_TYPE_INDICATE: True
+    
+    # LAST-ViT 频域选择参数
+    USE_LASTVIT_SELECTION: True  # 启用频域选择
+    SELECT_RATIO: 0.7  # 选择85%的tokens
+    FREQ_KERNEL_SIZE: 7  # 高斯滤波核大小
+    FREQ_SIGMA: 2.0  # 高斯核标准差
+    USE_ADAPTIVE_SELECTION: False  # 是否使用自适应选择比例
+    APPLY_SELECTION_AFTER_STAGE: 2  # 在第2个stage后应用选择
+    
+  TASK_INDEX:
+    ANTIUAV: 0
+  DECODER:
+    TYPE: CENTER
+    NUM_CHANNELS: 256
+    CONV_TYPE: normal
+    XAVIER_INIT: True
+  TASK_DECODER:
+    NUM_CHANNELS: 256
+    FEATURE_TYPE: average
+  TASK_NUM: 1
+
+TRAIN:
+  TYPE: normal
+  ENCODER_MULTIPLIER: 0.1
+  BATCH_SIZE: 4
+  EPOCH: 180
+  GRAD_CLIP_NORM: 0.0
+  LR: 0.0001
+  LR_DROP_EPOCH: 90
+  NUM_WORKER: 4
+  OPTIMIZER: ADAMW
+  PRINT_INTERVAL: 10
+  SCHEDULER:
+    TYPE: step
+    DECAY_RATE: 0.1
+  WEIGHT_DECAY: 0.0001
+  FREEZE_ENCODER: False  # 不冻结整个编码器
+  
+  # LAST-ViT 特定训练策略
+  FREEZE_BASE_EPOCHS: 20  # 前20轮冻结基础Fast-iTPN
+  UNFREEZE_STRATEGY: gradual  # 渐进解冻策略
+  
+  AMP: True
+
+TEST:
+  EPOCH: 180
+  SEARCH_FACTOR: 4.0
+  SEARCH_SIZE: 224
+  TEMPLATE_FACTOR: 2.0
+  TEMPLATE_SIZE: 112
+  WINDOW: True
+  NUM_TEMPLATES: 2
+  
+  # LAST-ViT 测试参数
+  TEST_SELECTION_RATIO: 0.7   # 测试时的选择比例

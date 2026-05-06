@@ -1,0 +1,87 @@
+# experiments/sutrack/sutrack_b224_antiuav_ir.yaml
+# Infrared Single-Modal Training
+# 纯红外单模态训练 — 使用6通道结构（IR→3ch+IR→3ch），复用halfcopy预训练策略
+# IN_CHANS=6 + halfcopy 保证encoder有合理初始化起点，避免IN_CHANS=3的域不匹配问题
+
+DATA:
+  MAX_SAMPLE_INTERVAL: 200
+  MULTI_MODAL_LANGUAGE: False
+  MULTI_MODAL_VISION: True         # 开启以使用6通道结构
+  INFRARED_ONLY: True              # 仅加载红外图像，stack为6通道
+  MEAN:
+  - 0.485
+  - 0.456
+  - 0.406
+  STD:
+  - 0.229
+  - 0.224
+  - 0.225
+  SEARCH:
+    CENTER_JITTER: 3.5
+    FACTOR: 4.0
+    SCALE_JITTER: 0.5
+    SIZE: 224
+    NUMBER: 1
+  TEMPLATE:
+    CENTER_JITTER: 0
+    FACTOR: 2.0
+    SCALE_JITTER: 0
+    SIZE: 112
+    NUMBER: 2
+  TRAIN:
+    DATASETS_NAME:
+    - ANTIUAV
+    DATASETS_RATIO:
+    - 1
+    SAMPLE_PER_EPOCH: 10000
+
+MODEL:
+  ENCODER:
+    TYPE: fastitpnb
+    IN_CHANS: 6                    # 6通道，复用halfcopy预训练策略
+    STRIDE: 16
+    PRETRAIN_TYPE: 'pretrained/itpn/fast_itpn_base_clipl_e1600.pt'
+    PATCHEMBED_INIT: halfcopy      # 双份IR各取预训练权重一半
+    DROP_PATH: 0.1
+    TOKEN_TYPE_INDICATE: True
+    USE_LINEAR_ATTN: False
+  TASK_INDEX:
+    ANTIUAV: 0
+  DECODER:
+    TYPE: CENTER
+    NUM_CHANNELS: 256
+    CONV_TYPE: normal
+    XAVIER_INIT: True
+  TASK_DECODER:
+    NUM_CHANNELS: 256
+    FEATURE_TYPE: average
+  TASK_NUM: 1
+
+TRAIN:
+  TYPE: normal
+  ENCODER_MULTIPLIER: 0.1
+  BATCH_SIZE: 40
+  EPOCH: 180
+  GRAD_CLIP_NORM: 0.0
+  LR: 0.0001
+  LR_DROP_EPOCH: 90
+  NUM_WORKER: 20
+  OPTIMIZER: ADAMW
+  PRINT_INTERVAL: 10
+  SCHEDULER:
+    TYPE: step
+    DECAY_RATE: 0.1
+  WEIGHT_DECAY: 0.0001
+  FREEZE_ENCODER: False
+  AMP: True
+
+TEST:
+  EPOCH: 180
+  SEARCH_FACTOR: 4.0
+  SEARCH_SIZE: 224
+  TEMPLATE_FACTOR: 2.0
+  TEMPLATE_SIZE: 112
+  WINDOW: True
+  NUM_TEMPLATES: 2
+  MULTI_MODAL_VISION:
+    DEFAULT: True                  # 测试时复制通道，匹配IN_CHANS=6
